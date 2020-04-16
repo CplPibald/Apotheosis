@@ -15,6 +15,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ITickable;
 import net.minecraft.util.SoundCategory;
@@ -28,6 +29,9 @@ import shadows.ench.EnchantmentInfo;
 import shadows.placebo.util.VanillaPacketDispatcher;
 import shadows.util.EnchantmentUtils;
 import shadows.util.ParticleMessage;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class TilePrismaticAltar extends TileEntity implements ITickable {
 
@@ -175,5 +179,63 @@ public class TilePrismaticAltar extends TileEntity implements ITickable {
 		markDirty();
 		VanillaPacketDispatcher.dispatchTEToNearbyPlayers(this);
 	}
+
+    // Implement Item handler capability to allow automation of altar
+
+    public ItemStackHandlerInput handlerIn = new ItemStackHandlerInput();
+    public ItemStackHandlerOutput handlerOut = new ItemStackHandlerOutput();
+
+    @Override @Nullable
+    public <T> T getCapability(net.minecraftforge.common.capabilities.Capability<T> capability, @Nullable EnumFacing facing)
+    {
+        if (capability == net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
+            if (facing == EnumFacing.DOWN)
+                return (T) handlerOut;
+            else
+                return (T) handlerIn;
+        }
+        return super.getCapability(capability, facing);
+    }
+
+    @Override
+    public boolean hasCapability(@Nonnull net.minecraftforge.common.capabilities.Capability<?> capability, @Nullable EnumFacing facing) {
+        if (capability == net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) { return true; }
+        return super.hasCapability(capability, facing);
+    }
+
+    private class ItemStackHandlerInput implements net.minecraftforge.items.IItemHandler  {
+
+        @Override public int getSlots() { return 4; }
+        @Override @Nonnull public ItemStack getStackInSlot(int slot) { return inv.getStackInSlot(slot); }
+        @Override public int getSlotLimit(int slot) { return 1; }
+        @Override public boolean isItemValid(int slot, @Nonnull ItemStack stack) {
+            return !EnchantmentHelper.getEnchantments(stack).isEmpty();
+        }
+        @Override @Nonnull public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
+            ItemStack ret = inv.insertItem(slot, stack, simulate);
+            if (!simulate) { markAndNotify(); }
+            return ret;
+        }
+        @Override @Nonnull public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private class ItemStackHandlerOutput implements net.minecraftforge.items.IItemHandler  {
+
+        @Override public int getSlots() { return 1; }
+        @Override @Nonnull public ItemStack getStackInSlot(int slot) { return inv.getStackInSlot(4); }
+        @Override public int getSlotLimit(int slot) { return 1; }
+        @Override public boolean isItemValid(int slot, @Nonnull ItemStack stack) {  return false; }
+        @Override @Nonnull public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
+            return stack;
+        }
+        @Override @Nonnull public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            ItemStack ret = inv.extractItem(4, amount, simulate);
+            if (!simulate) { markAndNotify(); }
+            return ret;
+        }
+    }
+
 
 }
